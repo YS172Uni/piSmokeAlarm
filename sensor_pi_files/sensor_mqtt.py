@@ -88,23 +88,25 @@ client = create_mqtt_client(NODE_ID)
 connected = connect_subscribe(client, NODE_ID)
 
 try:
-    if connected:
-        while True:
+    while True:
+        if connected:#loop for if pi is connected
             if alarm_instruction.is_set():
                 alarm_on(alarm)
             detected = 1 if G.input(SENSOR_PIN) == G.HIGH else 0
             if detected:
                 print(f"{datetime.now()}: Gas Detected")
                 publish_data(client, NODE_ID, detected)
-                instruction_received.wait()
+                got_instruction = instruction_received.wait(timeout=3)
                 instruction_received.clear()
+                if not got_instruction:
+                    connected = False
+                    continue
             else:
                 print(f"{datetime.now()}: Nothing Detected")        
                 publish_data(client, NODE_ID, detected)
             if not alarm_instruction.is_set():
                 time.sleep(5)  #check every x seconds
-    else:
-        while True:
+        else:#loop for local operations
             detected = 1 if G.input(SENSOR_PIN) == G.HIGH else 0
             if detected:
                 print(f"{datetime.now()}: Gas Detected")
