@@ -30,19 +30,30 @@ client.username_pw_set(USER, PASSWORD)
 # Connect to broker
 client.connect(BROKER, PORT, 60)
 
+def alarm_on(buzzer):
+    buzzer.play(Tone(640))
+    sleep(1.25)
+	buzzer.play(Tone(600))
+	sleep(1.25)
+    buzzer.play(Tone(640))
+	sleep(1.25)
+	buzzer.play(Tone(600))
+	sleep(1.25)
+
 # Callback for control messages
 def on_message(client, userdata, msg):
     msg_payload = msg.payload.decode()
     print(f"{datetime.now()}: Control message received -> {msg_payload}")
     if msg_payload == "ALARM":
-        buzzer.play(Tone(640))
-		sleep(1)
-		buzzer.play(Tone(600))
-		sleep(1)
+        alarm_on(buzzer)
 
 client.on_message = on_message
 client.subscribe(f"control/{NODE_ID}", qos=1)
 client.loop_start()  # Run network loop in background
+
+def publish_data(client, NODE_ID, detected):
+    payload = json.dumps({"node": NODE_ID, "detected": detected})
+    client.publish("sensors/" + NODE_ID, payload, qos=1)
 
 # Main sensor loop
 try:
@@ -50,14 +61,13 @@ try:
         detected = 1 if G.input(SENSOR_PIN) == G.HIGH else 0
         if detected:
             print(f"{datetime.now()}: Gas Detected")
+            publish_data(client, NODE_ID, detected)
+            #play tone for 5 seconds
+            alarm_on(buzzer)
         else:
-            print(f"{datetime.now()}: Nothing Detected")
-
-        #publish sensor state to control pi
-        payload = json.dumps({"node": NODE_ID, "detected": detected})
-        client.publish("sensors/" + NODE_ID, payload, qos=1)
-
-        time.sleep(5)  #check every x seconds
+            print(f"{datetime.now()}: Nothing Detected")        
+            publish_data(client, NODE_ID, detected)
+            time.sleep(5)  #check every x seconds
 
 except KeyboardInterrupt:
     print("Exiting sensor script")
