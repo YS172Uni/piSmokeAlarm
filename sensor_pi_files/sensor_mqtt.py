@@ -5,6 +5,8 @@ import json
 import uuid
 from datetime import datetime
 import paho.mqtt.client as mqtt
+from gpiozero import TonalBuzzer
+from gpiozero.tones import Tone
 
 # GPIO Setup
 SENSOR_PIN = 18
@@ -12,10 +14,10 @@ SPEAKER_PIN = 12
 
 G.setmode(G.BCM)
 G.setup(SENSOR_PIN, G.IN)
-G.setup(SPEAKER_PIN, G.OUT)
+alarm = TonalBuzzer(SPEAKER_PIN)
 
 # MQTT Setup
-BROKER = "10.62.134.146"  #control Pi IP
+BROKER = "10.62.134.146"  #Control Pi IP
 PORT = 1883
 USER = "sensor"
 PASSWORD = "pi2025"
@@ -33,10 +35,10 @@ def on_message(client, userdata, msg):
     msg_payload = msg.payload.decode()
     print(f"{datetime.now()}: Control message received -> {msg_payload}")
     if msg_payload == "ALARM":
-        #this is pwm, needs to be adjusted accordinly
-        G.output(SPEAKER_PIN, G.HIGH)
-        time.sleep(1)
-        G.output(SPEAKER_PIN, G.LOW)
+        buzzer.play(Tone(640))
+		sleep(1)
+		buzzer.play(Tone(600))
+		sleep(1)
 
 client.on_message = on_message
 client.subscribe(f"control/{NODE_ID}", qos=1)
@@ -47,7 +49,7 @@ try:
     while True:
         detected = 1 if G.input(SENSOR_PIN) == G.HIGH else 0
         if detected:
-            print(f"{datetime.now()}: Butane/LPG Detected")
+            print(f"{datetime.now()}: Gas Detected")
         else:
             print(f"{datetime.now()}: Nothing Detected")
 
