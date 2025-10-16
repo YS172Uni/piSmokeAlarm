@@ -4,6 +4,7 @@ from datetime import datetime
 from sense_hat import SenseHat
 import threading
 import time
+import sqlite3
 
 # ------------------------------
 # MQTT Configuration
@@ -18,6 +19,22 @@ PASSWORD = "pi2025"
 # ------------------------------
 sense = SenseHat()
 sense.clear()
+
+# ------------------------------
+# SQLite Setup
+# ------------------------------
+conn = sqlite3.connect('events.db', check_same_thread=False)
+cursor = conn.cursor()
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS events(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        node TEXT,
+        event_type TEXT,   -- SENSOR / ALARM / CLEAR
+        detected INTEGER,  -- 0/1 for SENSOR, NULL for ALARM/CLEAR
+        timestamp TEXT
+    )
+''')
+conn.commit()
 
 # ------------------------------
 # Node Tracking
@@ -44,6 +61,15 @@ def process_sensor_message(msg_payload):
     prev_detected[node_id] = prev
 
     node_status[node_id] = detected
+
+    # ------------------------------
+    # Log sensor message
+    # ------------------------------
+    cursor.execute(
+        "INSERT INTO events (node, event_type, detected, timestamp) VALUES (?, ?, ?, ?)",
+        (node_id, "SENSOR", detected, datetime.now().isoformat())
+    )
+    conn.commit()
 
     print(f"{datetime.now()}: Message from {node_id}: detected={detected}")
     return detected, node_id
@@ -79,6 +105,12 @@ def on_message(client, userdata, msg):
         for node in connected_nodes:
             client.publish(f"control/{node}", "ALARM", qos=1)
             print(f"{datetime.now()}: Sent ALARM to {node}")
+            # Log ALARM
+            cursor.execute(
+                "INSERT INTO events (node, event_type, detected, timestamp) VALUES (?, ?, ?, ?)",
+                (node, "ALARM", None, datetime.now().isoformat())
+            )
+        conn.commit()
 
     # Update Sense HAT after each message
     update_sensehat()
@@ -97,16 +129,27 @@ def monitor_nodes():
             if now - last_seen > DISCONNECT_TIMEOUT:
                 if status != -1:
                     node_status[node_id] = -1
-                    # Send CLEAR to all sensors for this node
                     for node in connected_nodes:
                         client.publish(f"control/{node}", "CLEAR", qos=1)
                         print(f"{datetime.now()}: Node {node_id} disconnected → Sent CLEAR to {node}")
+                        # Log CLEAR
+                        cursor.execute(
+                            "INSERT INTO events (node, event_type, detected, timestamp) VALUES (?, ?, ?, ?)",
+                            (node, "CLEAR", None, datetime.now().isoformat())
+                        )
+                    conn.commit()
+            
             # Node previously in smoke state but now 0
             elif status == 0 and prev_detected.get(node_id, 0) == 1:
-                # Send CLEAR to all sensors
                 for node in connected_nodes:
                     client.publish(f"control/{node}", "CLEAR", qos=1)
                     print(f"{datetime.now()}: Node {node_id} cleared → Sent CLEAR to {node}")
+                    # Log CLEAR
+                    cursor.execute(
+                        "INSERT INTO events (node, event_type, detected, timestamp) VALUES (?, ?, ?, ?)",
+                        (node, "CLEAR", None, datetime.now().isoformat())
+                    )
+                conn.commit()
             
         update_sensehat()
         time.sleep(1)
@@ -125,5 +168,4 @@ threading.Thread(target=monitor_nodes, daemon=True).start()
 
 # Start MQTT loop
 client.loop_forever()
-
 
