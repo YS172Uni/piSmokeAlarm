@@ -8,6 +8,7 @@ from datetime import datetime
 import paho.mqtt.client as mqtt
 from gpiozero import TonalBuzzer
 from gpiozero.tones import Tone
+from time import sleep
 
 # GPIO Setup
 SENSOR_PIN = 18
@@ -69,7 +70,7 @@ instruction_received = threading.Event()
 try:
     while True:
         if alarm_instruction.is_set():
-            alarm_on(buzzer)
+            alarm_on(alarm)
         detected = 1 if G.input(SENSOR_PIN) == G.HIGH else 0
         if detected:
             print(f"{datetime.now()}: Gas Detected")
