@@ -115,6 +115,17 @@ def on_message(client, userdata, msg):
     # Update Sense HAT after each message
     update_sensehat()
 
+def on_handshake(client, userdata, msg):
+    node_id = msg.topic.split('/')[-1]
+    print(f"{datetime.now()}: Handshake received from {node_id}")
+    client.publish(f"handshake/ack/{node_id}", "ACK", qos=1)
+    connected_nodes.add(node_id)
+    node_status[node_id] = 0
+    node_last_seen[node_id] = time.time()
+
+client.message_callback_add("handshake/init/#", on_handshake)
+client.subscribe("handshake/init/#", qos=1)
+
 # ------------------------------
 # Node Monitor Thread
 # ------------------------------
@@ -168,4 +179,3 @@ threading.Thread(target=monitor_nodes, daemon=True).start()
 
 # Start MQTT loop
 client.loop_forever()
-
