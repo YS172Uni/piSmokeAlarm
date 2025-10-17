@@ -193,5 +193,3 @@ threading.Thread(target=monitor_nodes, daemon=True).start()
 
 # Start MQTT loop
 client.loop_forever()
-
-
