@@ -34,6 +34,21 @@ class Dashboard:
                 for row in events
             ]
             return render_template("index.html", events=formatted_events)
+        #refresh the page every 5 seconds
+        @self.app.route("/events_json")
+        def events_json():
+            events = self.get_events()
+            formatted_events = [
+                {
+                    "node": row[0],
+                    "event_type": row[1],
+                    "detected": row[2] if row[2] is not None else "-",
+                    "timestamp": datetime.fromisoformat(row[3]).strftime("%Y-%m-%d %H:%M:%S")
+                }
+                for row in events
+            ]
+            from flask import jsonify
+            return jsonify(formatted_events)
 
     def run(self, host="0.0.0.0", port=5000, debug=True):
         self.app.run(host=host, port=port, debug=debug)
