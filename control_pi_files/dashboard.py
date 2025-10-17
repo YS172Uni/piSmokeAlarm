@@ -1,12 +1,18 @@
 from flask import Flask, render_template
 import sqlite3
 from datetime import datetime
+import logging
 
 class Dashboard:
     def __init__(self, db_path="events.db"):
         self.app = Flask(__name__)
         self.DB_PATH = db_path
         self._setup_routes()
+        log = logging.getLogger('werkzeug')
+        log.handlers = []                   
+        log.addHandler(logging.NullHandler())  
+        log.propagate = False               
+        log.setLevel(logging.CRITICAL) 
 
     def get_events(self, limit=50):
         """Fetch latest events from SQLite."""
@@ -50,5 +56,5 @@ class Dashboard:
             from flask import jsonify
             return jsonify(formatted_events)
 
-    def run(self, host="0.0.0.0", port=5000, debug=True):
-        self.app.run(host=host, port=port, debug=debug)
+    def run(self, host="0.0.0.0", port=5000, debug=False):
+        self.app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False)
