@@ -163,9 +163,23 @@ client.on_message = on_message
 client.connect(BROKER, PORT, 60)
 client.subscribe("sensors/#", qos=1)
 
+def on_handshake(client, userdata, msg):
+    if not msg.payload:#if there is no msg payload this is a clear instruction and should not trigger the callback
+        return
+    node_id = msg.topic.split('/')[-1]
+    print(f"{datetime.now()}: Handshake received from {node_id}")
+    client.publish(f"handshake/ack/{node_id}", "ACK", qos=1)#acknowledge the handshake
+    connected_nodes.add(node_id)
+    node_status[node_id] = 0
+    node_last_seen[node_id] = time.time()
+    client.publish(f"handshake/init/{node_id}", payload=None, qos=1, retain=True)#clear any handshakes
+
+client.message_callback_add("handshake/init/#", on_handshake)
+client.subscribe("handshake/init/#", qos=1)
+
+
 # Start node monitoring in background
 threading.Thread(target=monitor_nodes, daemon=True).start()
 
 # Start MQTT loop
 client.loop_forever()
-
