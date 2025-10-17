@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import RPi.GPIO as G
 import time
 import json
@@ -118,7 +117,7 @@ try:
         if connected:#loop for if pi is connected
             if alarm_instruction.is_set():
                 alarm_on(alarm)
-            detected = 1 if G.input(SENSOR_PIN) == G.HIGH else 0
+            detected = 1 if G.input(SENSOR_PIN) == G.LOW else 0
             if detected:
                 print(f"{datetime.now()}: Gas Detected")
                 publish_data(client, NODE_ID, detected)
