@@ -192,4 +192,9 @@ client.subscribe("handshake/init/#", qos=1)
 threading.Thread(target=monitor_nodes, daemon=True).start()
 
 # Start MQTT loop
-client.loop_forever()
+try:
+    client.loop_forever()
+except KeyboardInterrupt:
+    print("Exiting control script.")
+finally:
+    client.disconnect()
