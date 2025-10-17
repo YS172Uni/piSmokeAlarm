@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Smoke Alarm Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 20px; }
+        table { border-collapse: collapse; width: 100%; background: #fff; }
+        th, td { padding: 10px; border: 1px solid #ccc; text-align: center; }
+        th { background: #333; color: white; }
+        tr:nth-child(even) { background: #f9f9f9; }
+        .ALARM { background-color: #ffcccc; }
+        .CLEAR { background-color: #ccffcc; }
+        .SENSOR { background-color: #ffffcc; }
+    </style>
+    <script>
+        function fetchEvents() {
+            fetch('/events_json')
+                .then(response => response.json())
+                .then(data => {
+                    const tbody = document.getElementById('events-body');
+                    tbody.innerHTML = ''; // clear old rows
+                    data.forEach(event => {
+                        const row = `<tr class="${event.event_type}">
+                            <td>${event.node}</td>
+                            <td>${event.event_type}</td>
+                            <td>${event.detected}</td>
+                            <td>${event.timestamp}</td>
+                        </tr>`;
+                        tbody.innerHTML += row;
+                    });
+                });
+        }
+
+        setInterval(fetchEvents, 5000); // fetch every 5 seconds
+        window.onload = fetchEvents;     // initial load
+    </script>
+</head>
+<body>
+    <h1>Smoke Alarm Dashboard</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Node</th>
+                <th>Event</th>
+                <th>Detected</th>
+                <th>Timestamp</th>
+            </tr>
+        </thead>
+        <tbody id="events-body">
+            {% for event in events %}
+            <tr class="{{ event.event_type }}">
+                <td>{{ event.node }}</td>
+                <td>{{ event.event_type }}</td>
+                <td>{{ event.detected }}</td>
+                <td>{{ event.timestamp }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
