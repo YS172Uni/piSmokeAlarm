@@ -3,8 +3,11 @@ import json
 from datetime import datetime
 from sense_hat import SenseHat
 import threading
+from threading import Thread
 import time
 import sqlite3
+from init_db import Database
+from dashboard import Dashboard
 
 # ------------------------------
 # MQTT Configuration
@@ -23,18 +26,25 @@ sense.clear()
 # ------------------------------
 # SQLite Setup
 # ------------------------------
-conn = sqlite3.connect('events.db', check_same_thread=False)
+db_path='events.db'
+db = Database()
+#clear existing db
+conn = sqlite3.connect(db_path, check_same_thread=False)
 cursor = conn.cursor()
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS events(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        node TEXT,
-        event_type TEXT,   -- SENSOR / ALARM / CLEAR
-        detected INTEGER,  -- 0/1 for SENSOR, NULL for ALARM/CLEAR
-        timestamp TEXT
-    )
-''')
+cursor.execute("DROP TABLE IF EXISTS events")
 conn.commit()
+conn.close()
+#start new one
+db.initialise()
+#re-establish conn and cursor
+conn = sqlite3.connect(db_path, check_same_thread=False)
+cursor = conn.cursor()
+
+#Web Display Setup
+dashboard = Dashboard(db_path=db_path)
+flask_thread = Thread(target=dashboard.run, kwargs={"host": "0.0.0.0", "port": 5000, "debug": False})
+flask_thread.daemon = True
+flask_thread.start()
 
 # ------------------------------
 # Node Tracking
@@ -183,3 +193,5 @@ threading.Thread(target=monitor_nodes, daemon=True).start()
 
 # Start MQTT loop
 client.loop_forever()
+
+
