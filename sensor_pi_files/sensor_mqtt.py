@@ -29,13 +29,19 @@ def alarm_on(buzzer):
     sleep(1.25)
 
 # MQTT Setup
-BROKER = "10.62.134.146"  #Control Pi IP
+BROKER = "controlpi.local" #changed so that it can cnnect outside aut network. 
+#on control pi: 
+#(mqtt-venv) pi@YS172:~ $ sudo systemctl enable avahi-daemon
+#(mqtt-venv) pi@YS172:~ $ sudo systemctl start avahi-daemon
+#(mqtt-venv) pi@YS172:~ $ hostnamectl set-hostname controlpi
+
 PORT = 1883
 USER = "sensor"
 PASSWORD = "pi2025"
 alarm_instruction = threading.Event()
 instruction_received = threading.Event()
 connected_event = threading.Event()
+handshake_event = threading.Event()
     
 def create_mqtt_client(NODE_ID):#setup pi for mqtt
     client = mqtt.Client(client_id=f"sensor-{NODE_ID}")
@@ -44,7 +50,11 @@ def create_mqtt_client(NODE_ID):#setup pi for mqtt
 
 def on_message(client, userdata, msg):# Callback for control messages
     msg_payload = msg.payload.decode()
-    print(f"{datetime.now()}: Control message received -> {msg_payload}")
+    print(f"{datetime.now()}: Message received -> {msg_payload}")
+    if msg.topic == f"handshake/ack/{NODE_ID}":
+        handshake_event.set()
+        print(f"{datetime.now()}: Handshake ACK received from Control Pi")
+        return
     instruction_received.set()
     if msg_payload == "ALARM":
         alarm_instruction.set()
@@ -73,19 +83,35 @@ def connect_subscribe(client, NODE_ID):
 
     connected = connected_event.wait(timeout=10)
     if connected:
-        print("Remote Control Mode")
+        print("Connected to broker, setting up subscriptions")
+        client.subscribe(f"control/{NODE_ID}", qos=1)
+        client.subscribe(f"handshake/ack/{NODE_ID}", qos=1)
     else:
-        print("Local Mode")
+        print("Local Mode - could not reach Control Pi")
     return connected
 
 def publish_data(client, NODE_ID, detected):#send data to control pi
     payload = json.dumps({"node": NODE_ID, "detected": detected})
     client.publish("sensors/" + NODE_ID, payload, qos=1)
 
+def perform_handshake(client):
+    client.publish(f"handshake/init/{NODE_ID}", "HELLO", qos=1)
+    print(f"{datetime.now()}: Sent handshake to Control Pi")
+
+    # Wait for ACK
+    if handshake_event.wait(timeout=10):
+        print(f"{datetime.now()}: Handshake successful")
+        return True
+    else:
+        print(f"{datetime.now()}: No handshake response, switching to local mode")
+        return False
+
 #                   Main sensor loop
 NODE_ID = f"node-{uuid.uuid4()}"  #sensor node ID
 client = create_mqtt_client(NODE_ID)
 connected = connect_subscribe(client, NODE_ID)
+if connected:
+    connected = perform_handshake(client)
 
 try:
     while True:
